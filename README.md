@@ -1,4 +1,4 @@
-# Long-Bao-GBM-ETP
+# GBM-Surprisal
 This is the repository for The entropy of cell-cell signaling in GBM.  
 
 ## Data Preprocessing Part
