@@ -2,7 +2,7 @@
 This is the repository for the Surprisal analysis and cell-cell signaling in GBM for the manuscript ""
 
 ## Data Preprocessing Part
-Please refer to https://github.com/sdparekh/zUMIs for the raw fastq to the gene count matrix processes and zUMIs setup.
+Please refer to https://github.com/sdparekh/zUMIs for the raw fastq to the gene count matrix processes and zUMIs setup. Our parameters are stated in the template yaml file.
 
 ## Downstream Processing
 1. We run each of the sample 
