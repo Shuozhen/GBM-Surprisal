@@ -1,5 +1,5 @@
 # GBM-Surprisal
-This is the repository for the Surprisal analysis and cell-cell signaling in GBM for the manuscript ""
+This is the repository for the "Spatial Omics Decodes Human Brain Tumor Interactypes via Thermodynamic Surprisal Analysis"
 
 ## Data Preprocessing Part
 Please refer to https://github.com/sdparekh/zUMIs for the raw fastq to the gene count matrix processes and zUMIs setup. Our parameters are stated in the template yaml file.
