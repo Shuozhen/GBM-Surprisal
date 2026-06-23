@@ -1,0 +1,149 @@
+---
+title: "Normalization of Seurat Object for `r params$sample_name`"
+author: "Shuozhen Bao"
+date: "`r Sys.Date()`"
+output: html_document
+output_dir: "/gpfs/gibbs/pi/fan/sb2723/GBM_story/RNA/04.rds_gen4_normalized_20241207/html_report"
+output_file: "`r params$sample_name`_gen5_normalization.html"
+params:
+  sample_name: "R1110C"
+---
+
+```{r setup, include=FALSE}
+knitr::clean_cache()
+knitr::opts_chunk$set(echo = TRUE, message=FALSE, warning=FALSE)
+```
+
+## Load library
+Load the necessary packages.
+```{r Load library}
+library(Seurat)
+library(magrittr)
+library(patchwork)
+```
+
+## Set the WD and sample names, load the Seurat object
+```{r Set WD and input, message=TRUE}
+# Set directory and sample names
+### Sample ID
+sample <- params$sample_name
+dir_in <- paste0("/gpfs/gibbs/pi/fan/sb2723/GBM_story/RNA/03.gen5_rds_20241206/", sample, "/")
+list.files(dir_in) # Should show *_gen5_01_original_on_tissue.rds and *_gen5_02_noMT_on_tissue.rds
+dir_out <- paste0("/gpfs/gibbs/pi/fan/sb2723/GBM_story/RNA/04.rds_gen5_normalized_20241207/", sample, "/")
+if (!dir.exists(dir_out)) {dir.create(dir_out, recursive = TRUE)}
+```
+
+## Load the Seurat objects to be normalized
+### First load the original one without MT gene filtering
+
+```{r Load the Seurat objects}
+samp_zUMIs_ontissue <- readRDS(paste0(dir_in, sample, '_gen5_01_original_on_tissue.rds'))
+```
+
+## Standard log normalization and PCA process for samples
+```{r Log normalization}
+## NormalizeData() default is log normalization
+samp_zUMIs_ontissue <- NormalizeData(object = samp_zUMIs_ontissue, normalization.method = "LogNormalize")
+
+## Default parameters for find clusters and PCA reduction
+samp_zUMIs_ontissue <- FindVariableFeatures(object = samp_zUMIs_ontissue)
+samp_zUMIs_ontissue <- ScaleData(object = samp_zUMIs_ontissue)
+samp_zUMIs_ontissue <- RunPCA(object = samp_zUMIs_ontissue)
+samp_zUMIs_ontissue <- FindNeighbors(object = samp_zUMIs_ontissue, dims = 1:30)
+samp_zUMIs_ontissue <- FindClusters(object = samp_zUMIs_ontissue)
+samp_zUMIs_ontissue <- RunUMAP(object = samp_zUMIs_ontissue, dims = 1:30)
+
+DefaultAssay(samp_zUMIs_ontissue) <- "Spatial"
+p1 <- DimPlot(object = samp_zUMIs_ontissue, reduction = "umap")
+p2 <- SpatialDimPlot(object = samp_zUMIs_ontissue, pt.size.factor = 2, image.alpha = 1)
+
+png(filename=paste0(dir_out, sample, '_original_log_res0.8.png'), width = 8,height = 4,units = 'in',res=300)
+plotA <- p1 | p2
+plotA + plot_annotation(
+  title = paste0(sample, '_original: log normalization res0.8'),
+)
+dev.off()
+knitr::include_graphics(paste0(dir_out, sample, '_original_log_res0.8.png'))
+
+## Save the RDS file for future check
+saveRDS(samp_zUMIs_ontissue, file = paste0(dir_out, sample, '_gen5_03_original_on_tissue_log_res0.8.rds'))
+```
+
+## SCT normalization and PCA process for samples
+```{r SCT normalization}
+## Default parameters for find clusters and PCA reduction
+samp_zUMIs_ontissue <- SCTransform(samp_zUMIs_ontissue, assay = "Spatial") %>%
+  RunPCA() %>%
+  FindNeighbors(dims = 1:30) %>%
+  FindClusters(resolution = 0.8) %>% ## FindClusters() default res=0.8
+  RunUMAP(dims = 1:30)
+
+DefaultAssay(samp_zUMIs_ontissue) <- "SCT"
+p3 <- DimPlot(object = samp_zUMIs_ontissue, reduction = "umap")
+p4 <- SpatialDimPlot(object = samp_zUMIs_ontissue, pt.size.factor = 2, image.alpha = 1)
+
+png(filename=paste0(dir_out, sample, '_original_SCT_res0.8.png'), width = 8,height = 4,units = 'in',res=300)
+plotB <- p3 | p4
+plotB + plot_annotation(
+  title = paste0(sample, '_original: SCTransform res0.8'),
+)
+dev.off()
+knitr::include_graphics(paste0(dir_out, sample, '_original_SCT_res0.8.png'))
+
+saveRDS(samp_zUMIs_ontissue, file = paste0(dir_out, sample, '_gen5_03_original_on_tissue_SCT_res0.8.rds'))
+```
+
+## Same nomalization and PCA process for noMT samples
+Load the Seurat object without mitochondrial genes starting with MT|AL|H3|EEF|RPS|RPL|FP|AC|ENSM|ENSG|RNA|RN5|RN7|RNU|RNV
+```{r Load the no MT sample}
+samp_zUMIs_filtered_ontissue <- readRDS(paste0(dir_in, sample, '_gen5_02_noMT_on_tissue.rds'))
+```
+
+## Standard log normalization and PCA process for samples
+```{r Log normalization - no MT}
+## NormalizeData() default is log normalization
+samp_zUMIs_filtered_ontissue <- NormalizeData(object = samp_zUMIs_filtered_ontissue, normalization.method = "LogNormalize")
+
+samp_zUMIs_filtered_ontissue <- FindVariableFeatures(object = samp_zUMIs_filtered_ontissue)
+samp_zUMIs_filtered_ontissue <- ScaleData(object = samp_zUMIs_filtered_ontissue)
+samp_zUMIs_filtered_ontissue <- RunPCA(object = samp_zUMIs_filtered_ontissue)
+samp_zUMIs_filtered_ontissue <- FindNeighbors(object = samp_zUMIs_filtered_ontissue, dims = 1:30)
+samp_zUMIs_filtered_ontissue <- FindClusters(object = samp_zUMIs_filtered_ontissue)
+samp_zUMIs_filtered_ontissue <- RunUMAP(object = samp_zUMIs_filtered_ontissue, dims = 1:30)
+
+DefaultAssay(samp_zUMIs_filtered_ontissue) <- "Spatial"
+p5 <- DimPlot(object = samp_zUMIs_filtered_ontissue, reduction = "umap")
+p6 <- SpatialDimPlot(object = samp_zUMIs_filtered_ontissue, pt.size.factor = 2, image.alpha = 1)
+
+png(filename=paste0(dir_out, sample, '_noMT_log_res0.8.png'), width = 8,height = 4,units = 'in',res=300)
+plotC <- p5 | p6
+plotC + plot_annotation(
+  title = paste0(sample, '_noMT: log normalization res0.8'),
+)
+dev.off()
+knitr::include_graphics(paste0(dir_out, sample, '_noMT_log_res0.8.png'))
+
+saveRDS(samp_zUMIs_filtered_ontissue, file = paste0(dir_out, sample, '_gen5_04_noMT_on_tissue_log_res0.8.rds'))
+```
+
+```{r SCT normalization - no MT}
+samp_zUMIs_filtered_ontissue <- SCTransform(samp_zUMIs_filtered_ontissue, assay = "Spatial") %>%
+  RunPCA() %>%
+  FindNeighbors(dims = 1:30) %>%
+  FindClusters(resolution = 0.8) %>% ## FindClusters() default res=0.8
+  RunUMAP(dims = 1:30)
+
+DefaultAssay(samp_zUMIs_filtered_ontissue) <- "SCT"
+p7 <- DimPlot(object = samp_zUMIs_filtered_ontissue, reduction = "umap")
+p8 <- SpatialDimPlot(object = samp_zUMIs_filtered_ontissue, pt.size.factor = 2, image.alpha = 1)
+
+png(filename=paste0(dir_out, sample, '_noMT_SCT_res0.8.png'), width = 8,height = 4,units = 'in',res=300)
+plotC <- p7 | p8
+plotC + plot_annotation(
+  title = paste0(sample, '_noMT: SCTransform res0.8'),
+)
+dev.off()
+knitr::include_graphics(paste0(dir_out, sample, '_noMT_SCT_res0.8.png'))
+
+saveRDS(samp_zUMIs_filtered_ontissue, file = paste0(dir_out, sample, '_gen5_04_noMT_on_tissue_SCT_res0.8.rds'))
+```
