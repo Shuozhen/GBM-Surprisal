@@ -1,0 +1,163 @@
+---
+title: "Manual Cell Type GLSB"
+output: html_document
+date: "2025-02-12"
+---
+## This is the optimized way of manually assigning the cell type
+1. Clean prior all clusters and reduction information
+2. Run the below one by one, find the best PCA dim and clusters.
+3. Manually label it with coordinations to pathology annotation
+
+# ```{r setup, include=FALSE}
+# knitr::opts_chunk$set(echo = TRUE)
+# library(Seurat)
+# library(ggplot2)
+# source("~/project/01.scripts/04.Rscript/00.functions/SpatialFeaturePlotBlend.R")
+# samp_list <- readRDS("/gpfs/gibbs/pi/fan/sb2723/GBM_story/RNA/06.gen5_scType/gen5_rdslist_06_scType.rds")
+# ```
+
+## Load samples with all assays saved
+
+```{r Clean the environment and Load samples}
+rm(samp)
+rm(mark)
+samp <- samp_list[[2]]
+DefaultAssay(samp) <- "SCT"
+samp <- ScaleData(samp)
+samp <- FindVariableFeatures(samp)
+```
+
+## Find the best principle components
+
+```{r runPCA, echo=FALSE}
+samp <- RunPCA(samp, assay = "SCT", reduction.name = "pca.ph.SCT")
+ElbowPlot(samp,ndims = 30)
+DimHeatmap(samp,dims = 1:9,cells = 300,balanced = T, reduction = "pca.ph.SCT") 
+DimHeatmap(samp,dims = 10:18,cells = 300,balanced = T, reduction = "pca.ph.SCT")
+```
+
+```{r Run umap with selected PCs}
+samp <- RunUMAP(samp,dims = c(2:7,9,10,18),reduction.name = 'umap.ph.SCT')
+DimPlot(samp,group.by = 'orig.ident',reduction = 'umap.ph.SCT')
+samp <- FindNeighbors(samp,dims = c(2:7,9,10,18),reduction = 'pca.ph.SCT')
+```
+
+```{r Find different marker list with clustering resolutions}
+res <- 0.25
+samp <- FindClusters(samp, resolution = res, cluster.name = paste0("test_SCT_snn_res.", res)) ## Start from the default
+DimPlot(samp, pt.size = 2, reduction = 'umap.ph.SCT', label = T) + ggtitle(paste0("SCT_snn_res.", res))
+SpatialDimPlot(samp, pt.size.factor = 2, group.by = paste0("test_SCT_snn_res.", res))
+FeaturePlot(samp, "nCount_SCT", reduction = 'umap.ph.SCT', label = T)
+VlnPlot(samp, features = "nCount_SCT", group.by = paste0("test_SCT_snn_res.", res))+ ggtitle(paste0("SCT_snn_res.", res))
+mark <- FindAllMarkers(samp, assay = "SCT", logfc.threshold = 0.5, min.pct = 0.5, only.pos = T)
+mark$ratio <- mark$pct.1/mark$pct.2
+print(table(Idents(samp)))
+```
+
+
+```{r feature plot with top markers each cluster}
+DimPlot(samp, pt.size = 2, reduction = 'umap.ph.SCT', label = T) + ggtitle(paste0("SCT_snn_res.", res))
+print("cluster 2")
+summary(samp@meta.data[Idents(samp) == 2, c("nCount_SCT", "nFeature_SCT")])
+print("total sample")
+summary(samp@meta.data[, c("nCount_SCT", "nFeature_SCT")])
+```
+
+```{r find the technical artifact cluster and label it}
+# Calculate the 0.25% quantile threshold for nCount_SCT
+# threshold <- mean(samp@meta.data[Idents(samp) == 4,"nCount_SCT"])
+# threshold <- quantile(samp$nCount_SCT, probs = 0.05)
+# # Subset the Seurat object
+# samp_subset <- subset(samp, subset = nCount_SCT <= threshold)
+# samp <- subset(samp, subset = nCount_SCT > threshold)
+
+# Remove cluster "" from the Seurat object, which is the techinical artifacts with low counts
+samp_subset <- subset(samp, subset = test_SCT_snn_res.0.25 == "2")
+samp <- subset(samp, subset = test_SCT_snn_res.0.25 != "2")
+
+DimPlot(samp, pt.size = 2, reduction = 'umap.ph.SCT', label = T) + ggtitle(paste0("SCT_snn_res.", res))
+SpatialDimPlot(samp, pt.size.factor = 2, group.by = paste0("test_SCT_snn_res.", res))
+```
+
+```{r }
+samp <- RunPCA(samp, assay = "SCT", reduction.name = "pca.ph.SCT.v2")
+ElbowPlot(samp,ndims = 30)
+DimHeatmap(samp,dims = 1:9,cells = 300,balanced = T, reduction = "pca.ph.SCT.v2") 
+DimHeatmap(samp,dims = 10:18,cells = 300,balanced = T, reduction = "pca.ph.SCT.v2")
+```
+
+```{r}
+res = 0.2
+samp<- RunUMAP(samp,dims = 1:11,reduction.name = 'umap.ph.SCT.v2')
+DimPlot(samp,group.by = 'orig.ident',reduction = 'umap.ph.SCT.v2')
+samp <- FindNeighbors(samp,dims = 1:11,reduction = 'pca.ph.SCT.v2')
+samp <- FindClusters(samp, resolution = res, cluster.name = paste0("test_SCT_snn_res.", res))
+DimPlot(samp,group.by = paste0("test_SCT_snn_res.", res), pt.size = 2,reduction = 'umap.ph.SCT.v2')
+SpatialDimPlot(samp,group.by = paste0("test_SCT_snn_res.", res), pt.size.factor = 2)
+mark <- FindAllMarkers(samp, assay = "SCT", logfc.threshold = 0.25, min.pct = 0.2, only.pos = T)
+mark$ratio <- mark$pct.1/mark$pct.2
+```
+
+```{r}
+# Perivascular -> FAS, ADAMTS9-AS2, PECAM1, COL4A1, ACTA2
+# Neurons -> NOTCH2NLB, RFX4, CKAP4, RBFOX2
+# Microglia / Macrophages -> VCAM1, TNFAIP2, GBP1P1, CD163
+# Hepatocytes / Epithelial Cells -> HNF4G
+# Fibroblasts / Mesenchymal Cells -> PDLIM3, PHKA1
+# Immune Cells (T-cells, B-cells, NK cells) -> ZBTB33, BHLHE40, IL4
+# Oligodendrocytes -> C1R, C1S, CYB5A
+# Astrocytes -> TNFSF14, GFAP
+# MES-like: CD44
+
+FeaturePlot(samp, "PECAM1", reduction = 'umap.ph.SCT.v2', label = T) + ggtitle(paste0("PECAM1")) | FeaturePlot(samp, "COL4A1", reduction = 'umap.ph.SCT.v2', label = T) + ggtitle(paste0("COL4A1"))
+FeaturePlot(samp, "EGR4", reduction = 'umap.ph.SCT.v2', label = T) 
+
+SpatialDimPlot(samp, 
+               pt.size.factor = 2, 
+               label = FALSE, 
+               cells.highlight = CellsByIdentities(object = samp, idents = c(0, 1, 2, 3, 4,5,6,7,8,9,10)), # Choose Clusters to Present
+               facet.highlight = TRUE,
+               ncol = 3, # number of columns
+               cols.highlight = c('#000080', 'grey80')
+)
+
+SpatialFeaturePlot(samp, "PECAM1") | SpatialFeaturePlot(samp, "COL4A1")
+SpatialFeaturePlot(samp, "VCAM1") | SpatialFeaturePlot(samp, "CD163")
+SpatialFeaturePlot(samp, "CR1") | SpatialFeaturePlot(samp, "OLIG2")
+SpatialFeaturePlot(samp, "TNFSF14") | SpatialFeaturePlot(samp, "GFAP")
+SpatialFeaturePlot(samp, "TP53") | SpatialFeaturePlot(samp, "CD44") 
+
+SpatialDimPlot(samp, 
+               pt.size.factor = 2, 
+               label = FALSE, 
+               cells.highlight = CellsByIdentities(object = samp, idents = 2), # Choose Clusters to Present
+               facet.highlight = TRUE,
+               cols.highlight = c('#000080', 'grey80')
+) | SpatialFeaturePlot(samp, "CD44") 
+
+```
+
+```{r}
+SpatialFeaturePlotBlend(object = samp, 
+                          features = c("PECAM1", "COL4A1"),
+                          bottom_right = "magenta",
+                          top_left = "blue",
+                          top_right = "yellow")
+```
+
+```{r}
+Idents(samp) <- "test_SCT_snn_res.0.2"
+samp$SCT_snn_res.0.2_GLSB <- samp$test_SCT_snn_res.0.2
+
+samp <- RenameIdents(samp,
+                     "0" = "Invasive-front", ## tRNA-rich, general tumor markers, not specific so marked as unknown by scType
+                     "1" = "Neuron", ## RBFOX2+, CODEX and H&E validate it
+                     "2" = "Astrocytes") ## GFAP++, CODEX and H&E validate it
+
+samp$CellType_GLSB_manual <- Idents(samp)
+SpatialDimPlot(samp)
+```
+
+```{r}
+new_samp_list[[2]] <- samp
+```

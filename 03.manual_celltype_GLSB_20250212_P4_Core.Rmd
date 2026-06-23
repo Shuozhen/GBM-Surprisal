@@ -1,0 +1,204 @@
+---
+title: "Manual Cell Type GLSB"
+output: html_document
+date: "2025-02-12"
+---
+## This is the optimized way of manually assigning the cell type
+1. Clean prior all clusters and reduction information
+2. Run the below one by one, find the best PCA dim and clusters.
+3. Manually label it with coordinations to pathology annotation
+
+# ```{r setup, include=FALSE}
+# knitr::opts_chunk$set(echo = TRUE)
+# library(Seurat)
+# library(ggplot2)
+# samp_list <- readRDS("/gpfs/gibbs/pi/fan/sb2723/GBM_story/RNA/06.gen5_scType/gen5_rdslist_06_scType.rds")
+# ```
+
+## Load samples with all assays saved
+
+```{r Clean the environment and Load samples}
+rm(samp)
+rm(mark)
+samp <- samp_list[[7]]
+DefaultAssay(samp) <- "SCT"
+samp <- ScaleData(samp)
+samp <- FindVariableFeatures(samp)
+```
+
+## Find the best principle components
+
+```{r runPCA, echo=FALSE}
+samp <- RunPCA(samp, assay = "SCT", reduction.name = "pca.ph.SCT")
+ElbowPlot(samp,ndims = 30)
+DimHeatmap(samp,dims = 1:9,cells = 300,balanced = T, reduction = "pca.ph.SCT") 
+DimHeatmap(samp,dims = 10:18,cells = 300,balanced = T, reduction = "pca.ph.SCT")
+```
+
+```{r Run umap with selected PCs}
+samp <- RunUMAP(samp,dims = c(2:8,10,11,13),reduction.name = 'umap.ph.SCT')
+DimPlot(samp,group.by = 'orig.ident',reduction = 'umap.ph.SCT')
+samp <- FindNeighbors(samp,dims = c(2:8,10,11,13),reduction = 'pca.ph.SCT')
+```
+
+```{r Find different marker list with clustering resolutions}
+res <- 1
+samp <- FindClusters(samp, resolution = res, cluster.name = paste0("test_SCT_snn_res.", res))
+DimPlot(samp, pt.size = 2, reduction = 'umap.ph.SCT', label = T) + ggtitle(paste0("SCT_snn_res.", res))
+SpatialDimPlot(samp, pt.size.factor = 2, group.by = paste0("test_SCT_snn_res.", res))
+FeaturePlot(samp, "nCount_SCT", reduction = 'umap.ph.SCT', label = T)
+VlnPlot(samp, features = "nCount_SCT", group.by = paste0("test_SCT_snn_res.", res))+ ggtitle(paste0("SCT_snn_res.", res))
+mark <- FindAllMarkers(samp, assay = "SCT", logfc.threshold = 0.5, min.pct = 0.5, only.pos = T)
+mark$ratio <- mark$pct.1/mark$pct.2
+table(Idents(samp))
+```
+# ```{r Find different marker list with clustering resolutions}
+# res <- 1
+# samp <- FindClusters(samp, resolution = res, cluster.name = paste0("test_SCT_snn_res.", res)) ## Start from the default
+# DimPlot(samp, pt.size = 2, reduction = 'umap.ph.SCT', label = T) + ggtitle(paste0("SCT_snn_res.", res))
+# SpatialDimPlot(samp, pt.size.factor = 2, group.by = paste0("test_SCT_snn_res.", res))
+# FeaturePlot(samp, "nCount_SCT", reduction = 'umap.ph.SCT', label = T)
+# VlnPlot(samp, features = "nCount_SCT", group.by = paste0("test_SCT_snn_res.", res))+ ggtitle(paste0("SCT_snn_res.", res))
+# mark <- FindAllMarkers(samp, assay = "SCT", logfc.threshold = 0.5, min.pct = 0.5, only.pos = T)
+# mark$ratio <- mark$pct.1/mark$pct.2
+# ```
+
+
+```{r feature plot with top markers each cluster}
+DimPlot(samp, pt.size = 2, reduction = 'umap.ph.SCT', label = T) + ggtitle(paste0("SCT_snn_res.", res))
+print("cluster 1")
+summary(samp@meta.data[Idents(samp) == 1, c("nCount_SCT", "nFeature_SCT")])
+print("total sample")
+summary(samp@meta.data[, c("nCount_SCT", "nFeature_SCT")])
+```
+
+```{r find the technical artifact cluster and label it}
+# Calculate the 0.25% quantile threshold for nCount_SCT
+# threshold <- mean(samp@meta.data[Idents(samp) == 4,"nCount_SCT"])
+# threshold <- quantile(samp$nCount_SCT, probs = 0.05)
+# Subset the Seurat object
+threshold <- 7000
+samp_subset <- subset(samp, subset = nCount_SCT <= threshold)
+samp <- subset(samp, subset = nCount_SCT > threshold)
+
+# # Remove cluster "" from the Seurat object, which is the techinical artifacts with low counts
+# samp_subset <- subset(samp, subset = test_SCT_snn_res.1 == "8")
+# samp <- subset(samp, subset = test_SCT_snn_res.1 != "8")
+
+DimPlot(samp, pt.size = 2, reduction = 'umap.ph.SCT', label = T) + ggtitle(paste0("SCT_snn_res.", res))
+SpatialDimPlot(samp, pt.size.factor = 2, group.by = paste0("test_SCT_snn_res.", res))
+```
+
+```{r }
+samp <- RunPCA(samp, assay = "SCT", reduction.name = "pca.ph.SCT.v2")
+ElbowPlot(samp,ndims = 30)
+DimHeatmap(samp,dims = 1:9,cells = 300,balanced = T, reduction = "pca.ph.SCT.v2") 
+DimHeatmap(samp,dims = 10:18,cells = 300,balanced = T, reduction = "pca.ph.SCT.v2")
+```
+
+```{r}
+res = 0.5
+samp<- RunUMAP(samp,dims = 1:9,reduction.name = 'umap.ph.SCT.v2')
+DimPlot(samp,group.by = 'orig.ident',reduction = 'umap.ph.SCT.v2')
+samp <- FindNeighbors(samp,dims = 1:9,reduction = 'pca.ph.SCT.v2')
+samp <- FindClusters(samp, resolution = res, cluster.name = paste0("test_SCT_snn_res.", res))
+DimPlot(samp,group.by = paste0("test_SCT_snn_res.", res), pt.size = 2,reduction = 'umap.ph.SCT.v2')
+SpatialDimPlot(samp,group.by = paste0("test_SCT_snn_res.", res), pt.size.factor = 2)
+mark <- FindAllMarkers(samp, assay = "SCT", logfc.threshold = 0.5, min.pct = 0.5, only.pos = T)
+mark$ratio <- mark$pct.1/mark$pct.2
+```
+
+```{r}
+# Perivascular -> FAS, ADAMTS9-AS2, PECAM1, COL4A1, ACTA2
+# Neurons -> NOTCH2NLB, RFX4, CKAP4, RBFOX2
+# Microglia / Macrophages -> VCAM1, TNFAIP2, GBP1P1, CD163
+# Hepatocytes / Epithelial Cells -> HNF4G
+# Fibroblasts / Mesenchymal Cells -> PDLIM3, PHKA1
+# Immune Cells (T-cells, B-cells, NK cells) -> ZBTB33, BHLHE40, IL4
+# Oligodendrocytes -> C1R, C1S, CYB5A, OLIG2
+# Astrocytes -> TNFSF14, GFAP
+# MES-like: CD44, ADAM19, ADAMTS6, ITGA7, ITGB1, EDNRB
+# Neuronal GBM connection: SNAP25, GAP43
+# Hypoxia: VEGFA
+
+FeaturePlot(samp, "PECAM1", reduction = 'umap.ph.SCT.v2', label = T) + ggtitle(paste0("PECAM1")) | FeaturePlot(samp, "COL4A1", reduction = 'umap.ph.SCT.v2', label = T) + ggtitle(paste0("COL4A1"))
+
+
+FeaturePlot(samp, "CD44", reduction = 'umap.ph.SCT.v2', label = T) + ggtitle(paste0("CD44")) | FeaturePlot(samp, "ADAM19", reduction = 'umap.ph.SCT.v2', label = T) + ggtitle(paste0("ADAM19"))
+
+DimPlot(samp, cells.highlight = CellsByIdentities(object = samp, idents = "3"), cols.highlight = c('#000080', 'grey80'),reduction = 'umap.ph.SCT.v2') | FeaturePlot(samp, "CD44", reduction = 'umap.ph.SCT.v2', label = T) + ggtitle(paste0("CD44")) | FeaturePlot(samp, "ITGB1", reduction = 'umap.ph.SCT.v2', label = T) + ggtitle(paste0("ITGB1"))
+
+DimPlot(samp, cells.highlight = CellsByIdentities(object = samp, idents = "1"), cols.highlight = c('#000080', 'grey80'),reduction = 'umap.ph.SCT.v2') | FeaturePlot(samp, "GFAP", reduction = 'umap.ph.SCT.v2', label = T) + ggtitle(paste0("GFAP")) | FeaturePlot(samp, "TGFB2", reduction = 'umap.ph.SCT.v2', label = T) + ggtitle(paste0("TGFB2"))
+
+SpatialDimPlot(samp, 
+               pt.size.factor = 2, 
+               label = FALSE, 
+               cells.highlight = CellsByIdentities(object = samp, idents = c(0, 1, 2, 3, 4,5,6,7,8,9,10)), # Choose Clusters to Present
+               facet.highlight = TRUE,
+               ncol = 3, # number of columns
+               cols.highlight = c('#000080', 'grey80')
+)
+
+SpatialFeaturePlot(samp, "PECAM1") | SpatialFeaturePlot(samp, "COL4A1")
+SpatialFeaturePlot(samp, "VCAM1") | SpatialFeaturePlot(samp, "CD163")
+SpatialFeaturePlot(samp, "CR1") | SpatialFeaturePlot(samp, "OLIG2")
+SpatialFeaturePlot(samp, "TNFSF14") | SpatialFeaturePlot(samp, "GFAP")
+SpatialFeaturePlot(samp, "CD44") | SpatialFeaturePlot(samp, "GFAP")
+
+SpatialDimPlot(samp,
+               cells.highlight = CellsByIdentities(object = samp, idents = 4), # Choose Clusters to Present
+               cols.highlight = c('#000080', 'grey80')) | SpatialFeaturePlot(samp, "PECAM1")
+
+SpatialDimPlot(samp,
+               cells.highlight = CellsByIdentities(object = samp, idents = 0), # Choose Clusters to Present
+               cols.highlight = c('#000080', 'grey80')) | SpatialFeaturePlot(samp, "MKI67")
+
+SpatialDimPlot(samp,
+               cells.highlight = CellsByIdentities(object = samp, idents = 1), # Choose Clusters to Present
+               cols.highlight = c('#000080', 'grey80')) | SpatialFeaturePlot(samp, "TGFB2")
+
+SpatialDimPlot(samp,
+               cells.highlight = CellsByIdentities(object = samp, idents = 2), # Choose Clusters to Present
+               cols.highlight = c('#000080', 'grey80')) | SpatialFeaturePlot(samp, "GAP43")
+
+SpatialDimPlot(samp,
+               cells.highlight = CellsByIdentities(object = samp, idents = 3), # Choose Clusters to Present
+               cols.highlight = c('#000080', 'grey80')) | SpatialFeaturePlot(samp, "VEGFA")
+SpatialDimPlot(samp,
+               cells.highlight = CellsByIdentities(object = samp, idents = 3), # Choose Clusters to Present
+               cols.highlight = c('#000080', 'grey80')) | SpatialFeaturePlot(samp, "CD44")
+
+```
+
+
+```{r}
+Idents(samp) <- "test_SCT_snn_res.0.5"
+samp$SCT_snn_res.0.5_GLSB <- samp$test_SCT_snn_res.0.5
+samp <- RenameIdents(samp,
+             "0" = "AC-like", ## GFAP & TGFB2, not very cluster specific
+             "1" = "Invasive-front", ## MKI67, FGF12, OLIG2 -> OPC-like?
+             "2" = "Invasive-front", # MKI67, FGF12, OLIG2 -> OPC-like?
+             "3" = "MES-like_hypoxia", ## CD44, VEGFA
+             "4" = "Invasive-front",## MKI67, OLIG2 -> OPC-like?
+             "5" = "Endothelial") # PECAM1 and COL41A
+samp$CellType_GLSB_manual <- Idents(samp)
+
+SpatialDimPlot(samp)
+
+SpatialDimPlot(samp,
+               cells.highlight = CellsByIdentities(object = samp, idents = "MES-like_hypoxia"), # Choose Clusters to Present
+               cols.highlight = c('#000080', 'grey80'))
+
+SpatialDimPlot(samp,
+               cells.highlight = CellsByIdentities(object = samp, idents = "Invasive-front"), # Choose Clusters to Present
+               cols.highlight = c('#000080', 'grey80')) | SpatialFeaturePlot(samp, "CD44") | SpatialFeaturePlot(samp, "EGFR")
+
+SpatialDimPlot(samp,
+               cells.highlight = CellsByIdentities(object = samp, idents = "Invasive-front"), # Choose Clusters to Present
+               cols.highlight = c('#000080', 'grey80')) | SpatialFeaturePlot(samp, "PAX6") | SpatialFeaturePlot(samp, "CR1") | SpatialFeaturePlot(samp, "OLIG2") | SpatialFeaturePlot(samp, "MKI67") | SpatialFeaturePlot(samp, "FGF12")
+
+```
+
+```{r}
+new_samp_list[[7]] <- samp
+```
