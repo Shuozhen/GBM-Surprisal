@@ -162,10 +162,6 @@ Gotchas:
 - Only P1_Core has an active `samp_list <- readRDS(...)` and an active `new_samp_list <- list()`.
   The other nine assume both already exist, so run all ten in one session, in index order,
   P1_Core first.
-- The first chunk calls `rm(samp)` / `rm(mark)`, which errors in a clean session.
-- None of the ten saves anything. After the tenth you have to
-  `saveRDS(new_samp_list, "07.maunally_labeled_GLSB_v2_20250218.rds")` yourself — that exact
-  filename, typo included, is what step 06 reads.
 
 ### 06.Boundary_label_*.R (10 files)
 
