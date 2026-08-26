@@ -476,24 +476,4 @@ write.csv(as.matrix(mat), "P1_Core_raw_counts.csv")
 
 Decide deliberately whether to use the `_01_original_` (all genes) or `_02_noMT_` (filtered)
 object. The step-01 regex strips ribosomal and unnamed Ensembl genes too, which changes the
-count distribution. The README says raw expression but doesn't say which of the two.
-
----
-
-## Known issues, collected
-
-- `01.R:148–149` — filtered object subset with unfiltered barcodes, `img_noMT` unused
-- `01.R:60–62` — `message` overwritten twice, only SampleType prints
-- `01.R:117` — regex removes far more than MT genes but the printout says "MT"
-- `02.Rmd:6–7` — `output_dir`/`output_file` at top level of YAML, inert
-- `05.scType.R:45` — `gs_list_DB` computed and never used
-- `05.scType.R:17–20` — list order must be P1_Core...P5_Peripheral; depends on folder naming
-- `03.*.Rmd:22–23` — `rm(samp)` errors in a clean session
-- `03.*.Rmd` — none of them saves `new_samp_list`
-- `06.P1_Core.R:75` — `samp_list` undefined, should be `samples`
-- `06.P3_Peripheral.R` — `samp` never assigned
-- `06.*.R` — `library(layer)` in all ten, not a real package here
-- `06.P1_Peripheral / P2_Core / P4_Core` — no active saveRDS, but step 04 reads their outputs
-- `04.NICHES_P1_Peripheral / P2_Core` — inline `BiocManager::install`
-- all `.zip` files are password-encrypted; the zUMIs yaml has no plain-text copy
-- `* 2.*` and `* 3.*` files are byte-identical duplicates
+count distribution.
